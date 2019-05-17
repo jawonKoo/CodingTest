@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+</head>
+<body>
+    <h1>환율 계산</h1><br>
+    <label>송금국가:</label>
+    <select id="remittance" name="remittance">
+        <option th:each="data : ${remittanceCountry}" th:text="${data.getCountry()}" th:value="${data}"></option>
+    </select>
+    <br>
+    <label>수취국가:</label>
+    <select id="recipient" name="recipient">
+        <option th:each="data : ${recipientCountry}" th:text="${data.getCountry()}" th:value="${data}"></option>
+    </select>
+    <br>
+    <label>환율:</label>
+    <span id="data333" th:text="${#numbers.formatDecimal(exchangeRate.getUSDKRW(),3,'COMMA',2,'POINT')}"></span>
+    <span id="data1">KRW</span>/<span id="data2">USD</span>
+    <br>
+    <label>송금액:</label>
+    <input id="amount" name="amount" type="text" onKeyup="this.value=this.value.replace(/[^0-9]/g,'');">
+    <span id="data3">USD</span>
+    <br>
+    <button id="submit" type="button">Submit</button><br>
+    <br>
+    <span id="result"></span>
+</body>
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    var exchangeRate = [[${exchangeRate}]];
+    /*]]>*/
+
+    $('#remittance').on('change',function(){
+        $('#data2').text($(this).val());
+        $('#data3').text($(this).val());
+        $('#data333').text(getExchangeRate());
+    });
+
+    $('#recipient').on('change',function(){
+        $('#data1').text($(this).val());
+        $('#data333').text(getExchangeRate());
+    });
+
+    $("#submit").on('click',function() {
+        var remittance = $('#remittance').val()
+        var recipient = $('#recipient').val()
+        var amount = $('#amount').val();
+        var regexp = /^[0-9]*$/
+
+        if(amount === '' || !regexp.test(amount) || amount < 0 || amount > 10000) {
+            alert('송금액이 바르지 않습니다.');
+            return;
+        }
+
+        $.ajax({
+            url:'/calc',
+            type:'POST',
+            dataType:'json',
+            data:{
+                remittance:remittance,
+                recipient:recipient,
+                amount: amount
+            },
+            success:function (data) {
+                var text = [];
+                text.push("수취금액은 ");
+                text.push(numberWithCommas(data.toFixed(2)));
+                text.push(" ");
+                text.push(recipient);
+
+                $('#result').text(text.join(""));
+
+            }
+        })
+    });
+
+    function getExchangeRate() {
+        var remittance = $("#remittance").val();
+        var recipient = $("#recipient").val();
+        var exRate;
+
+        if(remittance === 'USD') {
+            if(recipient === 'KRW') {
+                exRate = exchangeRate.usdkrw;
+            } else if(recipient === 'JPY') {
+                exRate = exchangeRate.usdjpy;
+            } else if (recipient === 'PHP') {
+                exRate = exchangeRate.usdphp;
+            }
+        } else if(remittance === 'AUD') {
+            var aud = 1/exchangeRate.usdaud;
+            if(recipient === 'KRW') {
+                exRate = exchangeRate.usdkrw*aud;
+            } else if(recipient === 'JPY') {
+                exRate = exchangeRate.usdjpy*aud;
+            } else if (recipient === 'PHP') {
+                exRate = exchangeRate.usdphp*aud;
+            }
+        }
+
+        return numberWithCommas(exRate.toFixed(2));
+    }
+
+    function numberWithCommas(n) {
+        var parts=n.toString().split(".");
+        return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (parts[1] ? "." + parts[1] : "");
+    }
+
+</script>
+</html>
